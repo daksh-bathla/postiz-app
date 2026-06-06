@@ -6,7 +6,8 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
-import { Provider } from '@prisma/client';
+
+type Provider = 'LOCAL' | 'GITHUB' | 'GOOGLE' | 'FARCASTER' | 'WALLET' | 'GENERIC';
 
 export class CreateOrgUserDto {
   @IsString()

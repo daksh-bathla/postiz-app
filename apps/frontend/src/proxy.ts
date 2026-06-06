@@ -89,6 +89,27 @@ export async function proxy(request: NextRequest) {
   const org = nextUrl.searchParams.get('org');
   const url = new URL(nextUrl).search;
   if (!nextUrl.pathname.startsWith('/auth') && !authCookie) {
+    if (process.env.AUTO_LOGIN === 'true') {
+      try {
+        const autoRes = await internalFetch('/auth/auto-login', { method: 'POST' });
+        if (autoRes.ok) {
+          const data = await autoRes.json();
+          if (data.token) {
+            const dest = nextUrl.pathname === '/' ? '/growth' : nextUrl.pathname + (nextUrl.search || '');
+            const response = NextResponse.redirect(new URL(dest, nextUrl.href));
+            response.cookies.set('auth', data.token, {
+              path: '/',
+              ...(!process.env.NOT_SECURED
+                ? { secure: true, httpOnly: true, sameSite: false as const }
+                : {}),
+              maxAge: 365 * 24 * 60 * 60,
+              domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+            });
+            return response;
+          }
+        }
+      } catch {}
+    }
     const providers = ['google', 'settings'];
     const findIndex = providers.find((p) => nextUrl.href.indexOf(p) > -1);
     const additional = !findIndex
@@ -158,12 +179,7 @@ export async function proxy(request: NextRequest) {
       return redirect;
     }
     if (nextUrl.pathname === '/') {
-      return NextResponse.redirect(
-        new URL(
-          !!process.env.IS_GENERAL ? '/launches' : `/analytics`,
-          nextUrl.href
-        )
-      );
+      return NextResponse.redirect(new URL('/growth', nextUrl.href));
     }
 
     return topResponse;

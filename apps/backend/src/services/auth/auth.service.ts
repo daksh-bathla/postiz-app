@@ -311,6 +311,28 @@ export class AuthService {
     return { token };
   }
 
+  async autoLogin() {
+    const email = process.env.AUTO_LOGIN_EMAIL || 'admin@growthagent.local';
+    let user = await this._userService.getUserByEmail(email);
+    if (!user) {
+      const body = {
+        email,
+        password: 'auto-login-not-used',
+        provider: 'LOCAL' as any,
+        company: 'GrowthAgent',
+        providerToken: '',
+        datafast_visitor_id: '',
+      } as any;
+      const create = await this._organizationService.createOrgAndUser(body, '127.0.0.1', 'auto-login');
+      await this._userService.activateUser(create.users[0].user.id);
+      user = await this._userService.getUserByEmail(email);
+    }
+    if (!user) {
+      throw new Error('Auto-login failed: could not create user');
+    }
+    return this.jwt(user);
+  }
+
   private async jwt(user: User) {
     if (user.password) {
       delete user.password;

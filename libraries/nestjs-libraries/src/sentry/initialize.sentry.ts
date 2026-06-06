@@ -1,11 +1,16 @@
 import * as Sentry from '@sentry/nestjs';
-import { nodeProfilingIntegration } from '@sentry/profiling-node';
 import { capitalize } from 'lodash';
 
-export const initializeSentry = (appName: string, allowLogs = false) => {
+export const initializeSentry = async (appName: string, allowLogs = false) => {
   if (!process.env.NEXT_PUBLIC_SENTRY_DSN) {
     return null;
   }
+
+  let nodeProfilingIntegration: () => any = () => ({});
+  try {
+    const profiling = await import('@sentry/profiling-node');
+    nodeProfilingIntegration = profiling.nodeProfilingIntegration;
+  } catch {}
 
   try {
     Sentry.init({
@@ -24,7 +29,6 @@ export const initializeSentry = (appName: string, allowLogs = false) => {
       dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
       spotlight: process.env.SENTRY_SPOTLIGHT === '1',
       integrations: [
-        // Add our Profiling integration
         nodeProfilingIntegration(),
         Sentry.consoleLoggingIntegration({ levels: ['log', 'info', 'warn', 'error', 'debug', 'assert', 'trace'] }),
         Sentry.openAIIntegration({

@@ -4,7 +4,7 @@ import { ReactNode, useCallback } from 'react';
 import { FetchWrapperComponent } from '@gitroom/helpers/utils/custom.fetch';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import { useReturnUrl } from '@gitroom/frontend/app/(app)/auth/return.url.component';
-import { useVariables } from '@gitroom/react/helpers/variable.context';
+import { useVariables, loadVars } from '@gitroom/react/helpers/variable.context';
 export default function LayoutContext(params: { children: ReactNode }) {
   if (params?.children) {
     // eslint-disable-next-line react/no-children-prop
@@ -81,6 +81,19 @@ function LayoutContextInner(params: { children: ReactNode }) {
       }
 
       if (response.status === 401 || response?.headers?.get('logout')) {
+        const { autoLogin } = loadVars?.() || {};
+        if (autoLogin) {
+          try {
+            const autoRes = await fetch(backendUrl + '/auth/auto-login', { method: 'POST', credentials: 'include' });
+            if (autoRes.ok) {
+              const data = await autoRes.json();
+              if (data.login) {
+                window.location.reload();
+                return true;
+              }
+            }
+          } catch {}
+        }
         if (!isSecured) {
           setCookie('auth', '', -10);
           setCookie('showorg', '', -10);

@@ -39,6 +39,30 @@ export class AuthController {
     };
   }
 
+  @Post('/auto-login')
+  async autoLogin(@Res({ passthrough: false }) response: Response) {
+    if (process.env.AUTO_LOGIN !== 'true') {
+      return response.status(403).json({ error: 'Auto-login is not enabled' });
+    }
+    try {
+      const jwt = await this._authService.autoLogin();
+      response.cookie('auth', jwt, {
+        domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+        ...(!process.env.NOT_SECURED
+          ? { secure: true, httpOnly: true, sameSite: 'none' }
+          : {}),
+        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+      });
+      if (process.env.NOT_SECURED) {
+        response.header('auth', jwt);
+      }
+      response.header('reload', 'true');
+      return response.status(200).json({ login: true, token: jwt });
+    } catch (e: any) {
+      return response.status(500).json({ error: e.message });
+    }
+  }
+
   @Post('/register')
   async register(
     @Req() req: Request,
