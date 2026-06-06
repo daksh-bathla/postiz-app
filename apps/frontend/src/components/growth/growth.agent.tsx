@@ -7,6 +7,8 @@ import { useModals } from '@gitroom/frontend/components/layout/new-modal';
 import { useCalendar } from '@gitroom/frontend/components/launches/calendar.context';
 import { AddEditModal } from '@gitroom/frontend/components/new-launch/add.edit.modal';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
 import { ModelConfig } from './byok-ai';
 import {
   ProductContext,
@@ -479,176 +481,12 @@ const OpportunityCard: React.FC<{
   op: Opportunity;
   onUpdateStatus?: (status: 'pending' | 'review' | 'ready') => void;
 }> = ({ op, onUpdateStatus }) => {
-  const fetch = useFetch();
-  const [integrations, setIntegrations] = useState<any[]>([]);
-  const [selectedIntegrationId, setSelectedIntegrationId] = useState<string>('');
-  const [editedContent, setEditedContent] = useState(op.suggestedResponse);
-  const [scheduleType, setScheduleType] = useState<'draft' | 'now' | 'schedule'>('draft');
-  const [scheduleDate, setScheduleDate] = useState(() => {
-    const d = new Date();
-    d.setHours(d.getHours() + 1, 0, 0, 0);
-    return d.toISOString().slice(0, 16);
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch('/integrations/list')
-      .then((r) => r.json())
-      .then((data) => {
-        const all: any[] = data?.integrations || data || [];
-        const identifiers = PLATFORM_TO_IDENTIFIER[op.platform] || [];
-        const matched = identifiers.length
-          ? all.filter((i: any) => identifiers.includes((i.identifier || '').toLowerCase()))
-          : all;
-        setIntegrations(matched.length ? matched : all);
-        if (matched.length === 1) setSelectedIntegrationId(matched[0].id);
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleSchedule = useCallback(async () => {
-    if (!selectedIntegrationId) {
-      setSubmitError('Select a channel first.');
-      return;
-    }
-    setIsSubmitting(true);
-    setSubmitError(null);
-
-    const utcDate = scheduleType === 'now'
-      ? new Date().toISOString().replace('T', 'T').slice(0, 19)
-      : new Date(scheduleDate).toISOString().slice(0, 19);
-
-    const group = makeGroupId();
-    const body = {
-      type: scheduleType,
-      date: utcDate,
-      tags: [],
-      shortLink: false,
-      posts: [
-        {
-          integration: { id: selectedIntegrationId },
-          group,
-          settings: {},
-          value: [{ content: editedContent, delay: 0, image: [] }],
-        },
-      ],
-    };
-
-    try {
-      const res = await fetch('/posts', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.message || `HTTP ${res.status}`);
-      }
-      onScheduled();
-    } catch (e: any) {
-      setSubmitError(e.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [selectedIntegrationId, editedContent, scheduleType, scheduleDate, fetch, onScheduled]);
-
-  return (
-    <div className="mt-3 p-4 bg-white/[0.03] border border-emerald-500/20 rounded-xl space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Schedule with Postiz</span>
-        <button onClick={onClose} className="text-slate-600 hover:text-slate-300 text-xs">✕</button>
-      </div>
-
-      {/* Channel picker */}
-      <div className="space-y-1">
-        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Channel</label>
-        {integrations.length === 0 ? (
-          <p className="text-xs text-slate-600">
-            No {op.platform} channels connected.{' '}
-            <a href="/launches" className="text-sky-400 underline">Add one →</a>
-          </p>
-        ) : (
-          <div className="flex gap-2 flex-wrap">
-            {integrations.map((i: any) => (
-              <button
-                key={i.id}
-                onClick={() => setSelectedIntegrationId(i.id)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                  selectedIntegrationId === i.id
-                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                    : 'bg-white/[0.04] border-white/[0.08] text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {i.picture && (
-                  <img src={i.picture} alt="" className="w-4 h-4 rounded-full object-cover" />
-                )}
-                {i.name || i.display || i.identifier}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Edit content */}
-      <div className="space-y-1">
-        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Content</label>
-        <textarea
-          value={editedContent}
-          onChange={(e) => setEditedContent(e.target.value)}
-          rows={4}
-          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/50 resize-none"
-        />
-      </div>
-
-      {/* Schedule type */}
-      <div className="flex gap-2">
-        {(['draft', 'schedule', 'now'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setScheduleType(t)}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold capitalize transition-all ${
-              scheduleType === t
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                : 'bg-white/[0.04] border-white/[0.08] text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            {t === 'now' ? 'Post Now' : t}
-          </button>
-        ))}
-      </div>
-
-      {scheduleType === 'schedule' && (
-        <input
-          type="datetime-local"
-          value={scheduleDate}
-          onChange={(e) => setScheduleDate(e.target.value)}
-          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500/50"
-        />
-      )}
-
-      {submitError && (
-        <p className="text-xs text-rose-400">{submitError}</p>
-      )}
-
-      <button
-        onClick={handleSchedule}
-        disabled={isSubmitting || integrations.length === 0}
-        className="w-full py-2 rounded-xl text-sm font-bold bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-white flex items-center justify-center gap-2"
-      >
-        {isSubmitting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Calendar className="w-3.5 h-3.5" />}
-        {isSubmitting ? 'Scheduling...' : scheduleType === 'draft' ? 'Save as Draft' : scheduleType === 'now' ? 'Post Now' : 'Schedule'}
-      </button>
-    </div>
-  );
-};
-
-const OpportunityCard: React.FC<{
-  op: Opportunity;
-  onUpdateStatus?: (status: 'pending' | 'review' | 'ready') => void;
-}> = ({ op, onUpdateStatus }) => {
   const [copied, setCopied] = useState(false);
-  const [showSchedule, setShowSchedule] = useState(false);
   const [scheduled, setScheduled] = useState(false);
+  const fetch = useFetch();
+  const modal = useModals();
+  const { integrations } = useCalendar();
+
   const platformStyle =
     PLATFORM_COLORS[op.platform] || 'bg-slate-500/20 text-slate-300 border-slate-500/30';
   const confidenceColor =
@@ -670,11 +508,46 @@ const OpportunityCard: React.FC<{
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleScheduled = useCallback(() => {
-    setShowSchedule(false);
-    setScheduled(true);
-    onUpdateStatus?.('ready');
-  }, [onUpdateStatus]);
+  const handleSchedule = useCallback(async () => {
+    const identifiers = PLATFORM_TO_IDENTIFIER[op.platform] || [];
+    const matched = identifiers.length
+      ? integrations.filter((i: any) => identifiers.includes((i.identifier || '').toLowerCase()))
+      : integrations;
+    const channelList = matched.length ? matched : integrations;
+
+    const slotDate = await fetch('/posts/find-slot')
+      .then((r) => r.json())
+      .then((d) => dayjs.utc(d.date).local())
+      .catch(() => dayjs());
+
+    modal.openModal({
+      id: 'growth-schedule-modal',
+      closeOnClickOutside: false,
+      removeLayout: true,
+      closeOnEscape: false,
+      withCloseButton: false,
+      askClose: true,
+      fullScreen: true,
+      classNames: { modal: 'w-[100%] max-w-[1400px] text-textColor' },
+      children: (
+        <AddEditModal
+          allIntegrations={integrations}
+          integrations={channelList}
+          selectedChannels={channelList.map((i: any) => i.id)}
+          onlyValues={[{ content: op.suggestedResponse }]}
+          date={slotDate}
+          reopenModal={handleSchedule}
+          mutate={() => {
+            setScheduled(true);
+            onUpdateStatus?.('ready');
+          }}
+          customClose={() => modal.closeAll()}
+        />
+      ),
+      size: '80%',
+      title: '',
+    });
+  }, [integrations, op, fetch, modal, onUpdateStatus]);
 
   return (
     <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl overflow-hidden hover:border-white/[0.14] transition-colors">
@@ -763,15 +636,6 @@ const OpportunityCard: React.FC<{
         {/* Expected outcome */}
         <p className="text-xs text-slate-600">{op.expectedOutcome}</p>
 
-        {/* Schedule panel */}
-        {showSchedule && (
-          <SchedulePanel
-            op={op}
-            onClose={() => setShowSchedule(false)}
-            onScheduled={handleScheduled}
-          />
-        )}
-
         {/* Footer actions */}
         <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
           <div className="flex gap-2">
@@ -787,7 +651,7 @@ const OpportunityCard: React.FC<{
             )}
             {!scheduled && (
               <button
-                onClick={() => setShowSchedule((v) => !v)}
+                onClick={handleSchedule}
                 className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/20 transition-all flex items-center gap-1"
               >
                 <Calendar className="w-3 h-3" /> Schedule with Postiz
