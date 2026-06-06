@@ -251,17 +251,14 @@ export async function autoFillProduct(
   url: string,
   modelConfig: ModelConfig
 ): Promise<Partial<ProductContext>> {
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0' },
+  const proxyRes = await fetch('/api/scrape', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
   });
-  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
-  const html = await res.text();
-  const text = html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .substring(0, 15000);
+  const proxyData = await proxyRes.json();
+  if (!proxyRes.ok) throw new Error(proxyData.error || `Scrape failed: ${proxyRes.status}`);
+  const text = proxyData.text as string;
 
   const prompt = `Analyze this website and extract product context as JSON (no markdown):
 {"name":"","description":"","targetAudience":"","painPoints":"","tone":"","competitors":"","uniqueAngle":""}
