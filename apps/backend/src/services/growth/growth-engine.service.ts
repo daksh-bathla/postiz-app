@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
+import { CreationMethod } from '@prisma/client';
 
 const PROVIDERS_MAP: Record<string, string> = {
   gemini: 'gemini-2.5-flash',
@@ -326,17 +327,6 @@ Website: ${text}`;
     opportunity: any,
     integrationIds: string[]
   ): Promise<any> {
-    const platformMap: Record<string, string> = {
-      'X': 'twitter',
-      'Reddit': 'reddit',
-      'LinkedIn': 'linkedin',
-      'Discord': 'discord',
-      'HackerNews': 'hackernews',
-      'YouTube': 'youtube',
-      'IndieHackers': 'indiehackers',
-    };
-
-    const platformId = platformMap[opportunity.platform] || opportunity.platform.toLowerCase();
     const matchingIntegrations = integrationIds.filter(id => id);
 
     if (!matchingIntegrations.length) {
@@ -346,8 +336,8 @@ Website: ${text}`;
     const now = new Date();
     const draftDate = now.toISOString();
 
-    const createPostPayload = {
-      type: 'draft',
+    const createPostPayload: any = {
+      type: 'draft' as const,
       shortLink: false,
       date: draftDate,
       tags: [],
@@ -362,7 +352,7 @@ Website: ${text}`;
       }))
     };
 
-    return this.postsService.createPost(orgId, createPostPayload);
+    return this.postsService.createPost(orgId, createPostPayload, CreationMethod.API);
   }
 
   async scheduleOpportunityPost(
@@ -377,8 +367,8 @@ Website: ${text}`;
       throw new Error(`No integrations found for platform: ${opportunity.platform}`);
     }
 
-    const createPostPayload = {
-      type: 'schedule',
+    const createPostPayload: any = {
+      type: 'schedule' as const,
       shortLink: false,
       date: scheduleDate,
       tags: [],
@@ -393,7 +383,7 @@ Website: ${text}`;
       }))
     };
 
-    return this.postsService.createPost(orgId, createPostPayload);
+    return this.postsService.createPost(orgId, createPostPayload, CreationMethod.API);
   }
 
   async postOpportunityNow(
@@ -407,8 +397,8 @@ Website: ${text}`;
       throw new Error(`No integrations found for platform: ${opportunity.platform}`);
     }
 
-    const createPostPayload = {
-      type: 'now',
+    const createPostPayload: any = {
+      type: 'now' as const,
       shortLink: false,
       date: new Date().toISOString(),
       tags: [],
@@ -423,6 +413,6 @@ Website: ${text}`;
       }))
     };
 
-    return this.postsService.createPost(orgId, createPostPayload);
+    return this.postsService.createPost(orgId, createPostPayload, CreationMethod.API);
   }
 }
