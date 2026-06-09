@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 
 const PROVIDERS_MAP: Record<string, string> = {
   gemini: 'gemini-2.5-flash',
@@ -25,6 +26,7 @@ function stripJsonFences(text: string): string {
 
 @Injectable()
 export class GrowthEngineService {
+  constructor(private postsService: PostsService) {}
 
   async makeAiRequest(
     prompt: string,
@@ -317,5 +319,110 @@ Website: ${text}`;
     } catch (e: any) {
       throw new Error(e.message);
     }
+  }
+
+  async createDraftFromOpportunity(
+    orgId: string,
+    opportunity: any,
+    integrationIds: string[]
+  ): Promise<any> {
+    const platformMap: Record<string, string> = {
+      'X': 'twitter',
+      'Reddit': 'reddit',
+      'LinkedIn': 'linkedin',
+      'Discord': 'discord',
+      'HackerNews': 'hackernews',
+      'YouTube': 'youtube',
+      'IndieHackers': 'indiehackers',
+    };
+
+    const platformId = platformMap[opportunity.platform] || opportunity.platform.toLowerCase();
+    const matchingIntegrations = integrationIds.filter(id => id);
+
+    if (!matchingIntegrations.length) {
+      throw new Error(`No integrations found for platform: ${opportunity.platform}`);
+    }
+
+    const now = new Date();
+    const draftDate = now.toISOString();
+
+    const createPostPayload = {
+      type: 'draft',
+      shortLink: false,
+      date: draftDate,
+      tags: [],
+      posts: matchingIntegrations.map(integrationId => ({
+        integration: { id: integrationId },
+        value: [
+          {
+            content: opportunity.suggestedResponse,
+            image: [],
+          }
+        ]
+      }))
+    };
+
+    return this.postsService.createPost(orgId, createPostPayload);
+  }
+
+  async scheduleOpportunityPost(
+    orgId: string,
+    opportunity: any,
+    integrationIds: string[],
+    scheduleDate: string
+  ): Promise<any> {
+    const matchingIntegrations = integrationIds.filter(id => id);
+
+    if (!matchingIntegrations.length) {
+      throw new Error(`No integrations found for platform: ${opportunity.platform}`);
+    }
+
+    const createPostPayload = {
+      type: 'schedule',
+      shortLink: false,
+      date: scheduleDate,
+      tags: [],
+      posts: matchingIntegrations.map(integrationId => ({
+        integration: { id: integrationId },
+        value: [
+          {
+            content: opportunity.suggestedResponse,
+            image: [],
+          }
+        ]
+      }))
+    };
+
+    return this.postsService.createPost(orgId, createPostPayload);
+  }
+
+  async postOpportunityNow(
+    orgId: string,
+    opportunity: any,
+    integrationIds: string[]
+  ): Promise<any> {
+    const matchingIntegrations = integrationIds.filter(id => id);
+
+    if (!matchingIntegrations.length) {
+      throw new Error(`No integrations found for platform: ${opportunity.platform}`);
+    }
+
+    const createPostPayload = {
+      type: 'now',
+      shortLink: false,
+      date: new Date().toISOString(),
+      tags: [],
+      posts: matchingIntegrations.map(integrationId => ({
+        integration: { id: integrationId },
+        value: [
+          {
+            content: opportunity.suggestedResponse,
+            image: [],
+          }
+        ]
+      }))
+    };
+
+    return this.postsService.createPost(orgId, createPostPayload);
   }
 }

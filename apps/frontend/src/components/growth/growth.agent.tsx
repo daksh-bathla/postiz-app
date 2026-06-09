@@ -508,6 +508,66 @@ const OpportunityCard: React.FC<{
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCreateDraft = useCallback(async () => {
+    const identifiers = PLATFORM_TO_IDENTIFIER[op.platform] || [];
+    const matched = identifiers.length
+      ? integrations.filter((i: any) => identifiers.includes((i.identifier || '').toLowerCase()))
+      : integrations;
+
+    if (!matched.length) {
+      alert(`No connected ${op.platform} accounts. Set up integrations first.`);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/growth/create-draft', {
+        method: 'POST',
+        body: JSON.stringify({
+          opportunity: op,
+          integrationIds: matched.map((i: any) => i.id),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert('Draft created in Postiz!');
+      setScheduled(true);
+      onUpdateStatus?.('review');
+    } catch (e: any) {
+      alert(`Error: ${e.message}`);
+    }
+  }, [integrations, op, onUpdateStatus]);
+
+  const handlePostNow = useCallback(async () => {
+    const identifiers = PLATFORM_TO_IDENTIFIER[op.platform] || [];
+    const matched = identifiers.length
+      ? integrations.filter((i: any) => identifiers.includes((i.identifier || '').toLowerCase()))
+      : integrations;
+
+    if (!matched.length) {
+      alert(`No connected ${op.platform} accounts. Set up integrations first.`);
+      return;
+    }
+
+    if (!confirm('Post immediately to ' + matched.map((i: any) => i.name).join(', ') + '?')) return;
+
+    try {
+      const res = await fetch('/api/growth/post-now', {
+        method: 'POST',
+        body: JSON.stringify({
+          opportunity: op,
+          integrationIds: matched.map((i: any) => i.id),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert('Posted!');
+      setScheduled(true);
+      onUpdateStatus?.('ready');
+    } catch (e: any) {
+      alert(`Error: ${e.message}`);
+    }
+  }, [integrations, op, onUpdateStatus]);
+
   const handleSchedule = useCallback(async () => {
     const identifiers = PLATFORM_TO_IDENTIFIER[op.platform] || [];
     const matched = identifiers.length
@@ -638,7 +698,7 @@ const OpportunityCard: React.FC<{
 
         {/* Footer actions */}
         <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {op.sourceUrl && (
               <a
                 href={op.sourceUrl}
@@ -650,12 +710,26 @@ const OpportunityCard: React.FC<{
               </a>
             )}
             {!scheduled && (
-              <button
-                onClick={handleSchedule}
-                className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/20 transition-all flex items-center gap-1"
-              >
-                <Calendar className="w-3 h-3" /> Schedule with Postiz
-              </button>
+              <>
+                <button
+                  onClick={handleCreateDraft}
+                  className="text-[10px] font-semibold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1.5 rounded-lg hover:bg-blue-500/20 transition-all flex items-center gap-1"
+                >
+                  📋 Draft
+                </button>
+                <button
+                  onClick={handlePostNow}
+                  className="text-[10px] font-semibold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1.5 rounded-lg hover:bg-purple-500/20 transition-all flex items-center gap-1"
+                >
+                  🚀 Post Now
+                </button>
+                <button
+                  onClick={handleSchedule}
+                  className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/20 transition-all flex items-center gap-1"
+                >
+                  <Calendar className="w-3 h-3" /> Schedule
+                </button>
+              </>
             )}
           </div>
 

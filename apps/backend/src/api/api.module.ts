@@ -39,6 +39,7 @@ import { AnnouncementsController } from '@gitroom/backend/api/routes/announcemen
 import { AdminController } from '@gitroom/backend/api/routes/admin.controller';
 import { GrowthController } from '@gitroom/backend/api/routes/growth.controller';
 import { GrowthEngineService } from '@gitroom/backend/services/growth/growth-engine.service';
+import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { AuthProviderManager } from '@gitroom/backend/services/auth/providers/providers.manager';
 import { GithubProvider } from '@gitroom/backend/services/auth/providers/github.provider';
 import { GoogleProvider } from '@gitroom/backend/services/auth/providers/google.provider';
@@ -99,6 +100,7 @@ const authenticatedController = [
     FarcasterProvider,
     WalletProvider,
     OauthProvider,
+    PostsService,
     GrowthEngineService,
   ],
   get exports() {
